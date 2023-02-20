@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <windows.h>
+#include <QtDebug>
 
 #include "conio.h"
 #include "TDC4_interface.h"
@@ -126,7 +127,7 @@ int main(int argc, char* argv[], char* envp[])
 	FILE * fo = 0;
 
 	device = 0;
-	if (!init_TDC(10000.))										// in this example 10 us TDC range
+    if (!init_TDC(100000.))										// in this example 10 us TDC range
 		return 1;
 
 	printf("waiting for signals\n group range is 10000ns.\n(press any key to exit)\n");
@@ -142,82 +143,105 @@ int main(int argc, char* argv[], char* envp[])
 		return 1;
 	}
 
-	fo = fopen("data.bin","wb");
+    fo = fopen("data.bin", "wb");
 
 	__int32 counter = 0;
-	__int32 limit = 100;
+    uint32_t n = 0;
+    __int32 limit = 100;
 
 	while (true)
 	{
 	L100:
 
-		counter++;
-		if (counter > limit) {
-			counter = 0;
-			static __int64 last_time = 0;
-			__int64 time = GetTickCount64();
-			__int64 diff = time - last_time;
-			if (diff < 5)
-				limit *= 2;
-			if (diff > 1000 && limit > 999)
-				limit /= 2;
+        counter++;
+        if (counter > limit) {
+            counter = 0;
+            static __int64 last_time = 0;
+            __int64 time = GetTickCount64();
+            __int64 diff = time - last_time;
+            if (diff < 5)
+                limit *= 2;
+            if (diff > 1000 && limit > 999)
+                limit /= 2;
 
-			if (diff > 1000) {
-				last_time = time;
-				printf("read: no data\n");
-				if (_kbhit()) {
-					while (_kbhit()) _getch();
-					goto L666;
-				}
-			}
-		}
+            if (diff > 1000) {
+                last_time = time;
+                printf("read: no data\n");
+                if (_kbhit()) {
+                    qDebug() << "final n" << n;
+                    while (_kbhit()) _getch();
+                    goto L666;
+                }
+            }
+        }
 
-		while(!p)
-		{
-			__int32 status = timetagger4_read(device, &read_config, &read_data);	//get the pointers of the acquired packets
-	
-			if (status == CRONO_OK)
-			{
-				p = (crono_packet *)read_data.first_packet;
-				break;
-			}
+        __int32 status = timetagger4_read(device, &read_config, &read_data);	//get the pointers of the acquired packets
 
-			if (status == CRONO_READ_NO_DATA) {
-				Sleep(0);
-				goto L100;
-			}
+        if (status == CRONO_OK)
+        {
+            p = (crono_packet *)read_data.first_packet;
+//            n++;
+//            break;
+        }
 
-			if (status == CRONO_READ_INTERNAL_ERROR) {
-				printf("read: internal error\n");
-				goto L100;
-			}
+        if (status == CRONO_READ_NO_DATA) {
+//                Sleep(0);
+            goto L100;
+        }
 
-			if (status == CRONO_READ_TIMEOUT) {
-				printf("read: timeout\n");
-				goto L100;
-			}
-		}
-	
-		fwrite(p,sizeof(crono_packet)-8,1,fo);
-		// the above command writes:
-		// uint8_t channel;	// id of the card
-		// uint8_t card;		// type of packet. One of CRONO_PACKET_TYPE_*
-		// uint8_t type;		// Bit field of CRONO_PACKET_FLAG_* bits
-		// uint8_t flags;		// length of data array in multiples of 8 bytes
-		// uint32_t length;	// timestamp of packet creation, may be start or end of data depending on packet source.
-		// int64_t timestamp;
+        if (status == CRONO_READ_INTERNAL_ERROR) {
+            printf("read: internal error\n");
+            goto L100;
+        }
 
-	
-		fwrite(p->data,8,p->length,fo);
-		// the above command writes all hits in this packet to the file
+        if (status == CRONO_READ_TIMEOUT) {
+            printf("read: timeout\n");
+            goto L100;
+        }
 
-		if (p == read_data.last_packet)
-			p = 0;
-		else{
-			p = (crono_packet *)crono_next_packet(p); // go to next packet
-			fprintf(fo,"-----");
-		}
-	}
+        while(p)
+        {
+            n++;
+            if(n % 1000 == 0) {
+                qDebug() << n;
+            }
+
+                    qDebug() << "channel" << p->channel;
+                    qDebug() << "card" << p->card;
+                    qDebug() << "type" << p->type;
+                    qDebug() << "flags" << p->flags;
+                    qDebug() << "length" << p->length;
+                    qDebug() << "timestamp" << p->timestamp;
+                    qDebug() << "=====================";
+
+                    fwrite(p, sizeof(crono_packet)-8,1, fo);
+                    // the above command writes:
+                    // uint8_t channel;	// id of the card
+                    // uint8_t card;		// type of packet. One of CRONO_PACKET_TYPE_*
+                    // uint8_t type;		// Bit field of CRONO_PACKET_FLAG_* bits
+                    // uint8_t flags;		// length of data array in multiples of 8 bytes
+                    // uint32_t length;	// timestamp of packet creation, may be start or end of data depending on packet source.
+                    // int64_t timestamp;
+
+
+                    fwrite(p->data,8,p->length,fo);
+                    if(p->length > 1) {
+                        qDebug() << "length" << p->length;
+                    }
+                    // the above command writes all hits in this packet to the file
+
+                    if (p == read_data.last_packet)
+                        p = 0;
+                    else{
+                        p = (crono_packet *)crono_next_packet(p); // go to next packet
+            //            fprintf(fo,"-----");
+                    }
+        }
+
+
+
+
+    }
 
 L666:
 	if (device)									// stop data acquisition

@@ -70,7 +70,7 @@ set_target_properties(
 
 add_executable(simple_read simple_read_TDC4HM.cpp)
 target_include_directories(simple_read PUBLIC ${XTDC4_DIR})
-target_link_libraries(simple_read PRIVATE xtdc4_driver_64::xtdc4_driver_64)
+target_link_libraries(simple_read PRIVATE xtdc4_driver_64::xtdc4_driver_64 Qt${QT_VERSION_MAJOR}::Core)
 
 
 install(TARGETS TDCAcquisition
