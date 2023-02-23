@@ -46,3 +46,11 @@ install(TARGETS TDCAcquisition
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(TDCAcquisition)
 endif()
+
+
+set(OTHER_FILES
+    .gitignore
+    .clang-format
+)
+
+add_custom_target(project-related-files SOURCES ${OTHER_FILES})
