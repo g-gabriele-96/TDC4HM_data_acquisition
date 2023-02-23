@@ -114,6 +114,12 @@ bool init_TDC(double TDCRange_ns)
 
 
 
+//Things to change:
+//1) goto666 and gotoL100 and in general the status controls (Sleep)
+//2)
+
+
+
 
 
 
@@ -127,17 +133,19 @@ int main(int argc, char* argv[], char* envp[])
 	FILE * fo = 0;
 
 	device = 0;
-    if (!init_TDC(100000.))										// in this example 10 us TDC range
+    if (!init_TDC(100000.))										// in this example 100 us TDC range
 		return 1;
 
-	printf("waiting for signals\n group range is 10000ns.\n(press any key to exit)\n");
+    printf("waiting for signals\n group range is 100000ns.\n(press any key to exit)\n");
 
 	read_config.acknowledge_last_read = 1;						// automatically acknowledge all data as processed on the next call to xtdc4_read(). Old packet pointers are invalid after calling xtdc4_read()
 	crono_packet * p = 0;
 
 	double coarse_timestamp_to_ms = 0.5e-6;
-	TDC_resolution_LSB_ns = 0.5;
+
+    TDC_resolution_LSB_ns = 0.5;
 	__int32 status = timetagger4_start_capture(device); // start data capture
+
 	if(status != CRONO_OK) {
 		timetagger4_close(device);
 		return 1;
@@ -146,7 +154,8 @@ int main(int argc, char* argv[], char* envp[])
     fo = fopen("data.bin", "wb");
 
 	__int32 counter = 0;
-    uint32_t n = 0;
+    uint32_t n_pack = 0;    //Number of packets created
+    uint32_t n_ph_tot = 0;
     __int32 limit = 100;
 
 	while (true)
@@ -168,7 +177,7 @@ int main(int argc, char* argv[], char* envp[])
                 last_time = time;
                 printf("read: no data\n");
                 if (_kbhit()) {
-                    qDebug() << "final n" << n;
+                    qDebug() << "final n_pack" << n_pack;
                     while (_kbhit()) _getch();
                     goto L666;
                 }
@@ -180,6 +189,7 @@ int main(int argc, char* argv[], char* envp[])
         if (status == CRONO_OK)
         {
             p = (crono_packet *)read_data.first_packet;
+
 //            n++;
 //            break;
         }
@@ -201,45 +211,42 @@ int main(int argc, char* argv[], char* envp[])
 
         while(p)
         {
-            n++;
-            if(n % 1000 == 0) {
-                qDebug() << n;
+            n_pack++;
+            if(n_pack % 1000 == 0) {
+                qDebug() << n_pack;
             }
-
-                    qDebug() << "channel" << p->channel;
-                    qDebug() << "card" << p->card;
-                    qDebug() << "type" << p->type;
-                    qDebug() << "flags" << p->flags;
-                    qDebug() << "length" << p->length;
-                    qDebug() << "timestamp" << p->timestamp;
-                    qDebug() << "=====================";
+             qDebug() << 2*(crono_packet_data_length(p)) - (p->flags & 0x1);
+//                    qDebug() << "channel" << p->channel;
+//                    qDebug() << "card" << p->card;
+//                    qDebug() << "type" << p->type;
+//                    qDebug() << "flags" << p->flags;
+//                    qDebug() << "length" << p->length;
+//                    qDebug() << "timestamp" << p->timestamp;
+//                    qDebug() << "=====================";
 
                     fwrite(p, sizeof(crono_packet)-8,1, fo);
                     // the above command writes:
-                    // uint8_t channel;	// id of the card
+                    // uint8_t channel;	    // id of the card
                     // uint8_t card;		// type of packet. One of CRONO_PACKET_TYPE_*
                     // uint8_t type;		// Bit field of CRONO_PACKET_FLAG_* bits
                     // uint8_t flags;		// length of data array in multiples of 8 bytes
-                    // uint32_t length;	// timestamp of packet creation, may be start or end of data depending on packet source.
+                    // uint32_t length;	    // timestamp of packet creation, may be start or end of data depending on packet source.
                     // int64_t timestamp;
 
 
                     fwrite(p->data,8,p->length,fo);
-                    if(p->length > 1) {
-                        qDebug() << "length" << p->length;
-                    }
+//                    if(p->length > 1) {
+//                        qDebug() << "length" << p->length;
+//                    }
                     // the above command writes all hits in this packet to the file
 
                     if (p == read_data.last_packet)
                         p = 0;
                     else{
                         p = (crono_packet *)crono_next_packet(p); // go to next packet
-            //            fprintf(fo,"-----");
+
                     }
         }
-
-
-
 
     }
 
@@ -253,6 +260,8 @@ L666:
 		fo = 0;
 	}
 
+
 	TDCCleanUp();
 	return 0;
 }
+
