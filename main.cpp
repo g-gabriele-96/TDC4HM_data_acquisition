@@ -187,11 +187,13 @@ int main(int argc, char *argv[])
             if (n_pack % 1000 == 0) {
                 qDebug() << n_pack;
             }
-            qDebug() << 2 * (crono_packet_data_length(p)) - (p->flags & 0x1);
+            size_t n_photons = 2 * (crono_packet_data_length(p))
+                               - (p->flags & CRONO_PACKET_FLAG_SHORTENED);
+            qDebug() << n_photons;
 
             fwrite(p, sizeof(crono_packet) - 8, 1, fo);
 
-            fwrite(p->data, 8, p->length, fo);
+            fwrite((uint32_t *) p->data, 4, n_photons, fo);
 
             if (p == read_data.last_packet)
                 p = 0;
